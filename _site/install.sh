@@ -50,13 +50,21 @@ release_url() {
   echo "https://github.com/bytecodealliance/wasmtime/releases"
 }
 
+release_file_postfix(){
+    if [ "$1" == "mingw" ]; then
+        echo "zip"
+    else
+        echo "tar.xz"
+    fi
+}
+
 download_release_from_repo() {
   local version="$1"
   local arch="$2"
   local os_info="$3"
   local tmpdir="$4"
-
-  local filename="wasmtime-$version-$arch-$os_info.tar.xz"
+  local postfix=$(release_file_postfix $os_info)
+  local filename="wasmtime-$version-$arch-$os_info.$postfix"
   local download_file="$tmpdir/$filename"
   local archive_url="$(release_url)/download/$version/$filename"
   info $archive_url
@@ -258,6 +266,9 @@ parse_os_info() {
     Darwin)
       echo "macos"
       ;;
+    MINGW64*)
+      echo "mingw"
+      ;;
     *)
       return 1
   esac
@@ -448,13 +459,25 @@ install_from_file() {
   local archive="$1"
   local copy_to="$2"
   local extract_to="$(dirname $archive)"
-  local extracted_path="$extract_to/$(basename $archive .tar.xz)"
+
+  local filename
+  if [[ $archive == *.zip ]]; then
+    filename=$(basename "$archive" .zip)
+  else
+    filename=$(basename "$archive" .tar.xz)
+  fi
+
+  local extracted_path="$extract_to/$filename"
 
   create_tree "$copy_to"
 
   info 'Extracting' "Wasmtime binaries"
   # extract the files to the temp directory
-  tar -xvf "$archive" -C "$extract_to"
+  if [[ $archive == *.zip ]]; then
+    unzip -q "$archive" -d  "$extract_to"
+  else
+    tar -xvf "$archive" -C "$extract_to"
+  fi
 
   # copy the files to the specified directory
   # binaries go into the bin folder
